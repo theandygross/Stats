@@ -1,8 +1,8 @@
-'''
+"""
 Created on Jun 30, 2013
 
 @author: agross
-'''
+"""
 import pandas as pd
 import numpy as np
 import scipy.stats as stats
@@ -21,10 +21,11 @@ robjects.r.options(warn= -1)
 zz = robjects.r.file("all.Rout", open="wt")
 robjects.r.sink(zz, type='message')
 
+
 def log_rank(feature, surv):
-    '''
+    """
     Perform log-rank test using r.survival.survdiff function.
-    '''
+    """
     feature = sanitize_lr(feature)
     if type(feature) is type(None):
         return pd.Series(index=['chi2', 'p'])
@@ -36,10 +37,11 @@ def log_rank(feature, surv):
     p = stats.chi2.sf(s.rx2('chisq')[0], len(feature.unique()) - 1)
     return pd.Series({'chi2': s.rx2('chisq')[0], 'p': p})
 
+
 def log_rank_more(feature, surv):
-    '''
+    """
     Perform log-rank test using r.survival.survdiff function.
-    '''
+    """
     feature = sanitize_lr(feature)
     if type(feature) is type(None):
         return pd.Series(index=['chi2', 'p'])
@@ -69,6 +71,7 @@ def test_model(p):
             return False
     return True
 
+
 def get_models(factors, interactions='just_feature'):
     if interactions == 'just_feature':
         cov = [c for c in factors if c != 'feature']
@@ -84,7 +87,8 @@ def get_models(factors, interactions='just_feature'):
     models = map(lambda s: ' + '.join(s), models)
     models[0] = '1'
     return models
-    
+
+
 def cox_model_selection(surv, feature=None, covariates=None, interactions=True):
     df, factors = process_covariates(surv, feature, covariates)
     models = get_models(factors, interactions)      
@@ -106,9 +110,9 @@ def cox_model_selection(surv, feature=None, covariates=None, interactions=True):
 
 
 def LR_test(full, reduced, df=None):
-    '''
+    """
     Perform Likelihood ratio test on two R models.
-    '''
+    """
     full_ll = list(full.rx2('loglik'))
     reduced_ll = list(reduced.rx2('loglik'))
     assert full_ll[0] == reduced_ll[0]
@@ -121,6 +125,7 @@ def LR_test(full, reduced, df=None):
     if df is None:
         df = max(full_df - reduced_df, 1)
     return stats.chi2.sf(2 * full_ll[1] - 2 * reduced_ll[1], df)
+
 
 def sanitize_lr(feature):
     if feature is None:
@@ -160,6 +165,7 @@ def get_formula(factors, get_interactions=True):
     fmla = 'Surv(days, event) ~ {}'.format(interactions)
     return fmla
 
+
 def process_factors(clinical, hit_vec=None, covariates=[]):
     if not all([cov in clinical for cov in covariates]):
         covariates = [cov for cov in covariates if cov in clinical]
@@ -171,11 +177,12 @@ def process_factors(clinical, hit_vec=None, covariates=[]):
         df = clinical
     return df, factors
 
+
 def process_covariates(surv, feature=None, cov=None):
-    '''
+    """
     Coerce covariates and feature into format suitable for R's
     survival functions. 
-    '''
+    """
     if type(feature) is type(None):
         feature = pd.Series(index=surv.index.levels[0])
     if type(cov) is type(None):
@@ -203,9 +210,10 @@ def process_covariates(surv, feature=None, cov=None):
     df = convert_to_r_dataframe(df)
     return df, factors
 
+
 def get_cox_ph(surv, feature=None, covariates=None, formula=None,
                interactions=True, get_model=True, print_desc=False):
-    '''
+    """
     Fit a cox proportial hazzards model to the data.
     Returns a p-value on the hit_vec coefficient. 
     ---------------------------------------------------
@@ -213,7 +221,7 @@ def get_cox_ph(surv, feature=None, covariates=None, formula=None,
     hit_vec: vector of labels to test against
     covariates: names of covariates in the cox model,
                 (must be columns in clinical DataFrame)
-    '''
+    """
     if formula is None:
         s = cox_model_selection(surv, feature, covariates, interactions)
     else:
@@ -226,11 +234,12 @@ def get_cox_ph(surv, feature=None, covariates=None, formula=None,
         
     if get_model:
         return s
-    
+
+
 def get_cox_ph_ms(surv, feature=None, covariates=None, return_val='LR',
                   null_model=None, formula=None, get_model=True,
                   interactions=True):
-    '''
+    """
     Fit a cox proportial hazzards model to the data.
     Returns a p-value on the hit_vec coefficient. 
     ---------------------------------------------------
@@ -238,7 +247,7 @@ def get_cox_ph_ms(surv, feature=None, covariates=None, return_val='LR',
     hit_vec: vector of labels to test against
     covariates: names of covariates in the cox model,
                 (must be columns in clinical DataFrame)
-    '''
+    """
     print_desc = return_val == 'model_desc'
     if covariates is None:
         covariates = pd.DataFrame(index=feature.index)
@@ -290,6 +299,7 @@ def get_cox_ph_ms(surv, feature=None, covariates=None, return_val='LR',
                              'hazzard': hazzard,
                              'fmla': f})
     return results
+
 
 def get_surv_fit(surv, feature=None, covariates=None, interactions=None,
                  formula=None, time_cutoff=5):
@@ -348,41 +358,6 @@ def get_surv_fit_lr(surv, feature=None):
     t = t.sort([('Stats', '# Patients')], ascending=False)
     return t
     
-    
-class SurvivalTest(object):
-    def __init__(self, surv, covariates):
-        self.statistic = ('Full', 'LR')
-        self.surv = surv
-        self.covariates = covariates
-        self.first_pass = self.get_first_pass()
-        self.full_test = self.get_full_test()
-        
-    def get_first_pass(self):
-        '''
-        Fist pass test for survival tests is basic test with no covariates.
-        '''
-        def test(feature):
-            return get_cox_ph_ms(self.surv, feature, return_val='p_haz',
-                                 formula='Surv(days, event) ~ feature')
-        return test
-    
-    def get_full_test(self):
-        '''
-        Run Cox-PH with full model.
-        '''
-        test = lambda feature: get_cox_ph_ms(self.surv, feature,
-                                             covariates=self.covariates,
-                                             return_val='LR')
-        return test
-    
-    def check_feature(self, vec):
-        vec_type = get_vec_type(vec)
-        if vec_type == 'boolean':
-            return vec.value_counts()[1] > 10
-        elif vec_type == 'real':
-            return vec.count() > 50
-        else:
-            return False
         
 def run_feature_matrix(df, test, fp_cutoff=.5):
     df = df.ix[df.apply(test.check_feature, 1)]
@@ -399,6 +374,7 @@ def run_feature_matrix(df, test, fp_cutoff=.5):
                           name=('Univariate', 'q')))
     return res.sort_index(axis=1).sort(columns=[('Full', 'LR')])
 
+
 def stratified_cox(feature, surv, strata):
     fmla = 'Surv(days, event) ~ feature + strata({})'.format(strata.name)
     model = get_cox_ph(surv, feature, covariates=strata, formula=fmla)
@@ -406,10 +382,11 @@ def stratified_cox(feature, surv, strata):
     p = stats.chi2.sf(lr, 1)
     return pd.Series({'LR': lr, 'p': p})
 
+
 def cox(feature, surv):
-    '''
+    """
     Perform log-rank test using r.survival.survdiff function.
-    '''
+    """
     if feature.dtype in ['str', 'object', 'bool']:
         feature = sanitize_lr(feature)
     if type(feature) is type(None):
@@ -425,6 +402,7 @@ def cox(feature, surv):
     ret = pd.concat([hazard, stat, concordance], keys=['hazard', 'LR', 'concordance'])
     return ret
 
+
 def get_stats(s):
     b = base.summary(s)
     hazard = convert_robj(b.rx2('conf.int')).ix['feature']
@@ -432,6 +410,7 @@ def get_stats(s):
     concordance = pd.Series(b.rx2('concordance'), index=['stat', 'se'])
     ret = pd.concat([hazard, stat, concordance], keys=['hazard', 'LR', 'concordance'])
     return ret
+
 
 def cox_screen(df, surv, axis=1):
     if axis == 0:
@@ -445,11 +424,13 @@ def cox_screen(df, surv, axis=1):
     rr = rr.sortlevel(0, axis=1)
     return rr
 
+
 def lr_screen(df, surv):
     rr = df.astype(float).apply(log_rank, args=(surv,), axis=1)
     rr['q'] = bhCorrection(rr.p)
     rr = rr.sort('p')
     return rr
+
 
 def _interaction(a, b, surv):
     a, b = a.copy(), b.copy()
@@ -465,27 +446,30 @@ def _interaction(a, b, surv):
     m2 = get_cox_ph(surv, int_var)
     return pd.Series({'interaction': int_direction, 'p': LR_test(m2, m1)})
 
+
 def interaction(a, b, surv):
     try:
         return _interaction(a, b, surv)
     except:
         return pd.Series(index=['interaction', 'p'])
 
+
 def extract_chi2(full, reduced):
-    '''
+    """
     Extract chi2 statstic of likelihood ratio test 
     on two R models. 
-    '''
+    """
     full_ll = list(full.rx2('loglik'))
     reduced_ll = list(reduced.rx2('loglik'))
     chi2 = 2 * full_ll[1] - 2 * reduced_ll[1]
     return chi2
 
+
 def get_interaction_simple(a, b, surv, int_direction='both'):
-    '''
+    """
     Get test statistic (chi2 distributed) of interaction between 
     two event vectors.  
-    '''
+    """
     a, b = a.copy(), b.copy()
     a.name, b.name = 'a', 'b'
     m1 = get_cox_ph(surv, covariates=[a, b],
@@ -497,8 +481,9 @@ def get_interaction_simple(a, b, surv, int_direction='both'):
     chi2 = extract_chi2(m2, m1)
     return chi2
 
+
 def get_interaction(a, b, surv, int_direction='both'):
-    '''
+    """
     Get test statistic (chi2 distributed) of interaction between 
     two event vectors.  
     
@@ -510,7 +495,7 @@ def get_interaction(a, b, surv, int_direction='both'):
     We return the improvement of fit from 2 to 1 minus the 
     improvement of fit from 3 to 2. That is we want to capture
     as much of the information in the interaction term as possible.
-    '''
+    """
     a, b = a.copy(), b.copy()
     a.name, b.name = 'a', 'b'
     m1 = get_cox_ph(surv, covariates=[a, b],
@@ -525,15 +510,16 @@ def get_interaction(a, b, surv, int_direction='both'):
     chi2_b = extract_chi2(m3, m2)
     return chi2_a - chi2_b
 
+
 def interaction_empirical_p(a, b, surv, num_perm=101):
-    '''
+    """
     Calculate an empirical p-value for an interaction by sampling
     with replacement.  
     
     We first test if there is an improvement in model fit by 
     considering the interaction of the two events.  If so, we 
     then derive an empirical p-value. 
-    '''
+    """
     a, b = match_series(a, b)
     if fisher_exact_test(a, b)['odds_ratio'] > 1:
         int_direction = 'both'
@@ -554,15 +540,16 @@ def interaction_empirical_p(a, b, surv, num_perm=101):
     empirical_p = 1.*(len(vec) - sum(vec <= r)) / len(vec)
     return pd.Series({'p': empirical_p, 'interaction': int_direction})
 
+
 def interaction_empirical_p_resample(a, b, surv, num_perm=101, check_first=True):
-    '''
+    """
     Calculate an empirical p-value for an interaction by sampling
     with replacement.  
     
     We first test if there is an improvement in model fit by 
     considering the interaction of the two events.  If so, we 
     then derive an empirical p-value. 
-    '''
+    """
     a, b = match_series(a, b)
     if fisher_exact_test(a, b)['odds_ratio'] > 1:
         int_direction = 'both'
