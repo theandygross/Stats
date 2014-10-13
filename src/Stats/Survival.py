@@ -61,23 +61,31 @@ def log_rank_more(feature, surv):
     return ret
 
 
-def test_model(p):
-    interactions = [t for t in p if ':' in t] 
+def _test_model_for_int(m, feature_n='feature'):
+    """
+    Test model for interaction of feature with covariate.
+    m is the string form of the model, in R syntax.
+    feature n is is the name of the feature.
+    """
+    interactions = [t for t in m if ':' in t]
     for t in interactions:
         term = t.split(':')[-1]
-        if term not in p:
+        if term not in m:
             return False
-        if 'feature' not in p:
+        if feature_n not in m:
             return False
     return True
 
 
 def get_models(factors, interactions='just_feature'):
+    """
+    Get all models given a set of factors.
+    """
     if interactions == 'just_feature':
         cov = [c for c in factors if c != 'feature']
         models = ['feature:' + c for c in cov]
         models = [p for p in powerset(['feature'] + cov + models) if 
-                  test_model(p)]
+                  _test_model_for_int(p)]
     elif interactions == True:
         int_terms = [':'.join([a, b]) for a in factors for b in factors 
                      if a < b]
@@ -90,6 +98,13 @@ def get_models(factors, interactions='just_feature'):
 
 
 def cox_model_selection(surv, feature=None, covariates=None, interactions=True):
+    """
+    Preform model selection and return the best model.
+
+    Here I am assuming the number of covariates is relatively small and do a
+    brute-force evaluation of all possible models.  Stepwise model selection
+    may be necessary if this is not the case.
+    """
     df, factors = process_covariates(surv, feature, covariates)
     models = get_models(factors, interactions)      
     ll = {}
@@ -128,6 +143,9 @@ def LR_test(full, reduced, df=None):
 
 
 def sanitize_lr(feature):
+    """
+    Sanitize a feature for converting over to R.
+    """
     if feature is None:
         return feature
     if len(feature.unique()) <= 1:
@@ -149,6 +167,9 @@ def sanitize_lr(feature):
     
 
 def get_formula(factors, get_interactions=True):
+    """
+    Get an R-style formula given a list of factors.
+    """
     if len(factors) > 1:
         interactions = ' + '.join(factors)
         if get_interactions:
@@ -166,15 +187,17 @@ def get_formula(factors, get_interactions=True):
     return fmla
 
 
-def process_factors(clinical, hit_vec=None, covariates=[]):
-    if not all([cov in clinical for cov in covariates]):
-        covariates = [cov for cov in covariates if cov in clinical]
+def process_factors(df, hit_vec=None, covariates=[]):
+    """
+    Process factors for R.
+    """
+    if not all([cov in df for cov in covariates]):
+        covariates = [cov for cov in covariates if cov in df]
     if type(hit_vec) != type(None):
         factors = ['feature'] + covariates
-        df = clinical.join(pd.Series(hit_vec, name='feature'))
+        df = df.join(pd.Series(hit_vec, name='feature'))
     else:
         factors = covariates
-        df = clinical
     return df, factors
 
 
@@ -217,7 +240,7 @@ def get_cox_ph(surv, feature=None, covariates=None, formula=None,
     Fit a cox proportial hazzards model to the data.
     Returns a p-value on the hit_vec coefficient. 
     ---------------------------------------------------
-    clinical: DataFrame of clinical variables
+    surv: Series of survival data.
     hit_vec: vector of labels to test against
     covariates: names of covariates in the cox model,
                 (must be columns in clinical DataFrame)
