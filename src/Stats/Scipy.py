@@ -3,7 +3,9 @@ Created on Jun 30, 2013
 
 Wrappers around scipy.stats statistical tests to use 
 Pandas data-structures and return Pandas objects as
-results. 
+results.
+
+These should all be in the Python ecosystem and not use R.
 
 @author: agross
 """
