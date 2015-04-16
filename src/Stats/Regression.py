@@ -21,26 +21,27 @@ def sanitize_for_r(f):
     s = s.replace(':', '_').replace('(', '_').replace(')', '_').replace('-', '_')
     return pd.Series(f, name=s)
 
-def process_factors(cov):
+def process_factors(cov, normalize=True):
     '''
     Coerce covariates and feature into format suitable for R's
-    survival functions. 
+    survival functions.
     '''
     if type(cov) == pd.Series:
         cov = pd.concat([cov], axis=1)
     elif type(cov) == list:
         assert map(type, cov) == ([pd.Series] * len(cov))
         cov = pd.concat(cov, axis=1)
-        
-    
+
     c_real = cov.ix[:, cov.dtypes.isin([np.dtype(float), np.dtype(int)])]
-    c_real = (c_real - c_real.mean()) / c_real.std()
+    if normalize:
+        c_real = (c_real - c_real.mean()) / c_real.std()
     cov[c_real.columns] = c_real
     df = cov
     df = df.groupby(level=0).first()
     df = df.dropna()
     df = convert_to_r_dataframe(df)
     return df
+
 
 def stratified_regression(target, feature, strata):
     target, feature, strata = map(sanitize_for_r, [target, feature, strata])
