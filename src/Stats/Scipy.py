@@ -23,6 +23,8 @@ def _match_series(a, b):
     (copied from Processing.Helpers to remove that dependency,
      public use should go through Processing.Helpers)
     """
+    if a.index.identical(b.index):
+        return a, b
     a, b = a.align(b, join='inner', copy=False)
     valid = pd.notnull(a) & pd.notnull(b)
     a = a[valid]
