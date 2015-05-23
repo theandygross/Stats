@@ -16,27 +16,29 @@ robjects.r.options(warn= -1);
 zz = robjects.r.file("all.Rout", open="wt")
 robjects.r.sink(zz, type='message')
 
+
 def sanitize_for_r(f):
     s = f.name
     s = s.replace(':', '_').replace('(', '_').replace(')', '_').replace('-', '_')
     return pd.Series(f, name=s)
 
-def process_factors(cov, normalize=True):
-    '''
+
+def process_factors(cov, standardize=True):
+    """
     Coerce covariates and feature into format suitable for R's
-    survival functions.
-    '''
+    regression functions.
+    """
     if type(cov) == pd.Series:
         cov = pd.concat([cov], axis=1)
     elif type(cov) == list:
         assert map(type, cov) == ([pd.Series] * len(cov))
-        cov = pd.concat(cov, axis=1)
+        cov = pd.concat(cov, axis=1).dropna()
 
-    c_real = cov.ix[:, cov.dtypes.isin([np.dtype(float), np.dtype(int)])]
-    if normalize:
+    c_real = cov.ix[:, cov.dtypes.isin([np.dtype(float), np.dtype(int),
+                                            pd.np.dtype('float64')])]
+    if standardize:
         c_real = (c_real - c_real.mean()) / c_real.std()
-    cov[c_real.columns] = c_real
-    df = cov
+    df = c_real.combine_first(cov)
     df = df.groupby(level=0).first()
     df = df.dropna()
     df = convert_to_r_dataframe(df)
