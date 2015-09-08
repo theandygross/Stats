@@ -23,6 +23,8 @@ def _match_series(a, b):
     (copied from Processing.Helpers to remove that dependency,
      public use should go through Processing.Helpers)
     """
+    if a.index.identical(b.index):
+        return a, b
     a, b = a.align(b, join='inner', copy=False)
     valid = pd.notnull(a) & pd.notnull(b)
     a = a[valid]
@@ -203,3 +205,29 @@ def chi2_cont_test(hit_vec, response_vec):
     #    return pd.Series(index=['odds_ratio','p'])
     # return cont_table
     return pd.Series(stats.chi2_contingency(cont_table)[:3], index=['chi2', 'p', 'dof'])
+
+
+def ttest_df(split_vec, df, verbose=False):
+    """
+    Calculate  a t-test on a DataFrame as split by a boolean vector.
+    Uses a vectorized calculation which is much more efficient than
+    looping.
+
+    Returns a vector of t-statistics or a more detailed summary if
+    verbose flag is set to True.
+    """
+    dmean = df.T.groupby(split_vec).mean().T
+    dvar = df.T.groupby(split_vec).var().T
+    dn = df.T.groupby(split_vec).count().astype(float).T
+    s12 = ((((dn[True] - 1) * dvar[True]) + ((dn[False] - 1) * dvar[False])) /
+           (dn.sum(1) - 2)) ** .5
+    t = ((dmean[True] - dmean[False]) /
+         (s12 * np.sqrt((1 / dn[True]) + (1 / dn[False]))))
+    t = t.dropna()
+    if verbose is False:
+        return t
+    else:
+        ret = pd.concat({'mean(True)': dmean[True], 'mean(False)': dmean[False],
+                         'mean_diff': dmean[True] - dmean[False],
+                         'pooled std': s12, 't': t}, axis=1)
+        return ret

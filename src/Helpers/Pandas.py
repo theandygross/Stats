@@ -5,7 +5,6 @@ import numpy as np
 import itertools as it
 
 from statsmodels.sandbox.stats import multicomp
-from numpy.linalg import LinAlgError, svd
 
 
 def powerset(iterable):

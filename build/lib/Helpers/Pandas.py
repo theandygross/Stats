@@ -5,7 +5,6 @@ import numpy as np
 import itertools as it
 
 from statsmodels.sandbox.stats import multicomp
-from numpy.linalg import LinAlgError, svd
 
 
 def powerset(iterable):
@@ -114,6 +113,8 @@ def match_series(a, b):
     """
     Matches two series on shared data.
     """
+    if a.index.identical(b.index):
+        return a, b
     a, b = a.align(b, join='inner', copy=False)
     valid = pd.notnull(a) & pd.notnull(b)
     a = a[valid]

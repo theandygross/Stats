@@ -6,11 +6,10 @@ Created on Jul 17, 2013
 import pandas as pd
 import numpy as np
 
-import rpy2.robjects as robjects
-from pandas.rpy.common import convert_to_r_dataframe
+from Helpers.RPY2 import robjects, pandas2ri, rpackages
 
 lm = robjects.r.lm
-base = robjects.packages.importr('base')
+base = rpackages.importr('base')
 
 robjects.r.options(warn= -1);
 zz = robjects.r.file("all.Rout", open="wt")
@@ -41,7 +40,7 @@ def process_factors(cov, standardize=True):
     df = c_real.combine_first(cov)
     df = df.groupby(level=0).first()
     df = df.dropna()
-    df = convert_to_r_dataframe(df)
+    df = pandas2ri.py2ri(df)
     return df
 
 

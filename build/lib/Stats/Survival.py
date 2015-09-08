@@ -7,15 +7,14 @@ import pandas as pd
 import numpy as np
 import scipy.stats as stats
 
-import rpy2.robjects as robjects
-from pandas.rpy.common import convert_to_r_dataframe, convert_robj
 from Helpers.Pandas import get_vec_type, bhCorrection, powerset
 from Helpers.Pandas import match_series, combine
 from Scipy import fisher_exact_test
+from Helpers.RPY2 import robjects, pandas2ri, rpackages
 
-survival = robjects.packages.importr('survival')
-base = robjects.packages.importr('base')
-mass = robjects.packages.importr('MASS')
+survival = rpackages.importr('survival')
+base = rpackages.importr('base')
+mass = rpackages.importr('MASS')
 
 robjects.r.options(warn= -1)
 zz = robjects.r.file("all.Rout", open="wt")
@@ -54,7 +53,7 @@ def log_rank_more(feature, surv):
     b = base.summary(s)
     print b
 
-    hazard = convert_robj(b.rx2('conf.int')).ix[0]
+    hazard = pandas2ri.ri2py(b.rx2('conf.int')).ix[0]
     stat = pd.Series(b.rx2('logtest'), index=['stat', 'df', 'p'])
     concordance = pd.Series(b.rx2('concordance'), index=['stat', 'se'])
     ret = pd.concat([hazard, stat, concordance], keys=['hazard', 'LR', 'concordance'])
@@ -230,7 +229,7 @@ def process_covariates(surv, feature=None, cov=None):
     df, factors = process_factors(df, feature, list(cov.columns))
     df = df[factors + ['days', 'event']]
     df = df.dropna(axis=1, how='all')
-    df = convert_to_r_dataframe(df)
+    df = pandas2ri.py2ri(df)
     return df, factors
 
 
@@ -283,7 +282,7 @@ def get_cox_ph_ms(surv, feature=None, covariates=None, return_val='LR',
     if s is None:
         return
     
-    results = convert_robj(base.summary(s).rx2('coefficients'))
+    results = pandas2ri.ri2py(base.summary(s).rx2('coefficients'))
     
     def set_null_model(feature, covariates):
         null_int = False if interactions == 'just_feature' else interactions
@@ -335,7 +334,7 @@ def get_surv_fit(surv, feature=None, covariates=None, interactions=None,
     
     s = survival.survfit(fmla, df)
     summary = base.summary(s, times=robjects.r.c(time_cutoff))
-    res = convert_robj(summary.rx2('table'))
+    res = pandas2ri.ri2py(summary.rx2('table'))
     
     if type(res) == list:
         r = summary.rx2('table')
@@ -419,7 +418,7 @@ def cox(feature, surv):
     s = get_cox_ph(surv, feature, formula=fmla)
     b = base.summary(s)
 
-    hazard = convert_robj(b.rx2('conf.int')).ix[0]
+    hazard = pandas2ri.ri2py(b.rx2('conf.int')).ix[0]
     stat = pd.Series(b.rx2('logtest'), index=['stat', 'df', 'p'])
     concordance = pd.Series(b.rx2('concordance'), index=['stat', 'se'])
     ret = pd.concat([hazard, stat, concordance], keys=['hazard', 'LR', 'concordance'])
@@ -428,7 +427,7 @@ def cox(feature, surv):
 
 def get_stats(s):
     b = base.summary(s)
-    hazard = convert_robj(b.rx2('conf.int')).ix['feature']
+    hazard = pandas2ri.ri2py(b.rx2('conf.int')).ix['feature']
     stat = pd.Series(b.rx2('logtest'), index=['stat', 'df', 'p'])
     concordance = pd.Series(b.rx2('concordance'), index=['stat', 'se'])
     ret = pd.concat([hazard, stat, concordance], keys=['hazard', 'LR', 'concordance'])
