@@ -51,7 +51,7 @@ def log_rank_more(feature, surv):
     s = survival.coxph(fmla, r_data)
     
     b = base.summary(s)
-    print b
+    print(b)
 
     hazard = pandas2ri.ri2py(b.rx2('conf.int')).ix[0]
     stat = pd.Series(b.rx2('logtest'), index=['stat', 'df', 'p'])
@@ -252,7 +252,7 @@ def get_cox_ph(surv, feature=None, covariates=None, formula=None,
         s = survival.coxph(fmla, df)
     
     if print_desc:
-        print '\n\n'.join(str(s).split('\n\n')[-2:])
+        print('\n\n'.join(str(s).split('\n\n')[-2:]))
         
     if get_model:
         return s
